@@ -1,9 +1,10 @@
-import { geoContains } from 'd3-geo'
+// import type { Feature } from 'geojson'
+import turfBooleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { lngLatToGoogle } from 'global-mercator'
 import Protobuf from 'pbf'
-import axios from 'axios'
-import { setupCache } from 'axios-cache-adapter'
+import fetch from 'cross-fetch'
 import { VectorTile } from '@mapbox/vector-tile'
+import { Feature, GeoJsonProperties, MultiPolygon, Polygon } from 'geojson'
 
 export interface ReverseGeocodingResult {
   code: string
@@ -27,16 +28,31 @@ export interface ReverseGeocodingOptions {
 const DEFAULT_OPTIONS: ReverseGeocodingOptions = {
   zoomBase: 10,
   tileUrl: `https://geolonia.github.io/open-reverse-geocoder/tiles/{z}/{x}/{y}.pbf`,
-  layer: 'japanese-admins'
+  layer: 'japanese-admins',
 }
 
-const cache = setupCache({
-  maxAge: 60 * 60 * 24 * 1000
-})
+const TILE_CACHE: { [key: string]: VectorTile } = {}
+async function getTile(
+  tileUrl: string,
+  x: number,
+  y: number,
+  z: number,
+): Promise<VectorTile> {
+  const requestUrl = tileUrl
+    .replace('{z}', String(z))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y))
 
-const api = axios.create({
-  adapter: cache.adapter
-})
+  let tile = TILE_CACHE[requestUrl]
+  if (typeof tile !== 'undefined') {
+    return tile
+  }
+  const res = await fetch(requestUrl)
+  const buffer = await res.arrayBuffer()
+  console.log(requestUrl, res.statusText)
+  tile = TILE_CACHE[requestUrl] = new VectorTile(new Protobuf(buffer))
+  return tile
+}
 
 export const openReverseGeocoder: (
   input: LngLat,
@@ -47,10 +63,6 @@ export const openReverseGeocoder: (
     ...inputOptions,
   }
   const [x, y] = lngLatToGoogle(lnglat, options.zoomBase)
-  const tileUrl = options.tileUrl
-    .replace('{z}', String(options.zoomBase))
-    .replace('{x}', String(x))
-    .replace('{y}', String(y))
 
   const geocodingResult = {
     code: '',
@@ -58,45 +70,46 @@ export const openReverseGeocoder: (
     city: '',
   }
 
-  let buffer
-
-  try {
-    const res = await api.get(tileUrl, { responseType: 'arraybuffer' })
-    buffer =Buffer.from(res.data, 'binary')
-  } catch(error) {
-    throw new Error(error)
-  }
-
-  const tile = new VectorTile(new Protobuf(buffer))
+  const tile = await getTile(options.tileUrl, x, y, options.zoomBase)
   let layers = Object.keys(tile.layers)
 
   if (!Array.isArray(layers)) layers = [layers]
 
-  layers.forEach((layerID) => {
+  for (const layerID of layers) {
     const layer = tile.layers[layerID]
-    if (layer && (options.layer === layer.name)) {
-      for (let i = 0; i < layer.length; i++) {
-        const feature = layer.feature(i).toGeoJSON(x, y, options.zoomBase)
-        if (layers.length > 1) feature.properties.vt_layer = layerID
+    if (!layer || options.layer !== layer.name) {
+      continue
+    }
+    for (let i = 0; i < layer.length; i++) {
+      const feature = layer.feature(i).toGeoJSON(x, y, options.zoomBase)
+      // if (layers.length > 1) feature.properties.vt_layer = layerID
 
-        const geojson = {
-          type: 'FeatureCollection',
-          features: [feature],
-        }
+      if (
+        feature.geometry.type !== 'Polygon' &&
+        feature.geometry.type !== 'MultiPolygon'
+      ) {
+        continue
+      }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = geoContains(geojson as any, lnglat)
-        if (res) {
-          geocodingResult.code =
-            5 === String(feature.id).length
-              ? String(feature.id)
-              : `0${String(feature.id)}`
-          geocodingResult.prefecture = feature.properties.prefecture
-          geocodingResult.city = feature.properties.city
-        }
+      const res = turfBooleanPointInPolygon(
+        {
+          type: 'Point',
+          coordinates: lnglat,
+        },
+        feature as Feature<Polygon | MultiPolygon, GeoJsonProperties>,
+      )
+      if (res) {
+        geocodingResult.code =
+          5 === String(feature.id).length
+            ? String(feature.id)
+            : `0${String(feature.id)}`
+        geocodingResult.prefecture = feature.properties?.prefecture
+        geocodingResult.city = feature.properties?.city
+
+        return geocodingResult
       }
     }
-  })
+  }
 
   return geocodingResult
 }

@@ -9,5 +9,11 @@ export default {
     format: 'cjs',
   },
   plugins: [typescript(), resolve(), commonjs()],
-  external: ['axios', 'd3-geo', 'global-mercator', 'pbf', '@mapbox/vector-tile'],
+  external: [
+    '@turf/boolean-contains',
+    'cross-fetch',
+    'global-mercator',
+    'pbf',
+    '@mapbox/vector-tile',
+  ],
 }
