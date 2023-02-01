@@ -33,6 +33,8 @@ test('北海道羅臼町 [145.189681, 44.021866]', async () => {
     code: '01694',
     prefecture: '北海道',
     city: '目梨郡羅臼町',
+    chiban: '100-83',
+    oaza: '栄町',
   })
 })
 
@@ -42,5 +44,18 @@ test('八丈町 [139.785231, 33.115122]', async () => {
     code: '13401',
     prefecture: '東京都',
     city: '八丈町',
+    oaza: '大賀郷',
+    chiban: '2928-2',
+  })
+})
+
+test('屋久島町役場 [130.651523, 30.390173]', async () => {
+  const res = await geocoder([130.651523, 30.390173])
+  expect(res).toStrictEqual({
+    code: '46505',
+    prefecture: '鹿児島県',
+    city: '熊毛郡屋久島町',
+    oaza: '小瀬田',
+    chiban: '849-20',
   })
 })
