@@ -6,8 +6,11 @@ import _fetch from 'cross-fetch'
 import { VectorTile } from '@mapbox/vector-tile'
 import { Feature, GeoJsonProperties, MultiPolygon, Polygon } from 'geojson'
 
-const isBrowser =
-  typeof window !== 'undefined' && typeof window.document !== 'undefined'
+const isBrowser = !(
+  typeof process === 'object' &&
+  typeof process.versions === 'object' &&
+  typeof process.versions.node !== 'undefined'
+)
 
 const fetch = isBrowser ? _fetch.bind(window) : _fetch
 
