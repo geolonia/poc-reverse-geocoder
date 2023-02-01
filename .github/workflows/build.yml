@@ -54,7 +54,7 @@ jobs:
           name: dist
           path: dist
       - name: 'Copy dist to public'
-        run: cp -r dist/* public/
+        run: cp --remove-destination -r dist/* public/
 
       - name: Setup Pages
         uses: actions/configure-pages@v3
