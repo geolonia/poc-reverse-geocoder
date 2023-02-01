@@ -52,6 +52,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: dist
+          path: dist
       - name: 'Copy dist to public'
         run: cp -r dist/* public/
 
