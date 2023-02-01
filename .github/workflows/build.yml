@@ -10,6 +10,11 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,8 +33,37 @@ jobs:
       - run: npm run build
       - run: npm run lint
       - run: npm test
-      # allow fails
-      # - run: npm run test:addresses || true
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist
+
+  publish_site:
+    name: 'Publish GitHub Pages'
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: dist
+      - name: 'Copy dist to public'
+        run: cp -r dist/* public/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: 'public'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
 
   publish:
     name: 'Publish npm package'
@@ -42,7 +76,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           tag_name: 'v%s'
-          node-version: '14.x'
+          node-version: '16.x'
           registry-url: 'https://registry.npmjs.org'
           scope: '@geolonia'
       - run: npm install

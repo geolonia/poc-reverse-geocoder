@@ -2,9 +2,20 @@
 import turfBooleanPointInPolygon from '@turf/boolean-point-in-polygon'
 import { lngLatToGoogle } from 'global-mercator'
 import Protobuf from 'pbf'
-import fetch from 'cross-fetch'
+import _fetch from 'cross-fetch'
 import { VectorTile } from '@mapbox/vector-tile'
 import { Feature, GeoJsonProperties, MultiPolygon, Polygon } from 'geojson'
+
+const isBrowser =
+  typeof window !== 'undefined' && typeof window.document !== 'undefined'
+
+const fetch = isBrowser ? _fetch.bind(window) : _fetch
+
+const DEFAULT_FETCH_HEADERS: HeadersInit = isBrowser
+  ? {}
+  : {
+      Origin: 'http://localhost:8000',
+    }
 
 export interface ReverseGeocodingResult {
   code: string
@@ -77,9 +88,7 @@ async function getTile(
     let tilejson = TILEJSON_CACHE[tileUrl]
     if (!tilejson) {
       const res = await fetch(tileUrl, {
-        headers: {
-          Origin: 'http://localhost:8000',
-        },
+        headers: DEFAULT_FETCH_HEADERS,
       })
       tilejson = TILEJSON_CACHE[tileUrl] = await res.json()
     }
@@ -96,9 +105,7 @@ async function getTile(
     return tile
   }
   const res = await fetch(requestUrl, {
-    headers: {
-      Origin: 'http://localhost:8000',
-    },
+    headers: DEFAULT_FETCH_HEADERS,
   })
   const buffer = await res.arrayBuffer()
   tile = TILE_CACHE[requestUrl] = new VectorTile(new Protobuf(buffer))
