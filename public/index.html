@@ -2,6 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Geolonia 逆ジオコーダ</title>
     <script type="text/javascript" src="https://cdn.geolonia.com/v1/embed?geolonia-api-key=YOUR-API-KEY"></script>
     <script type="text/javascript" src="main.js"></script>
@@ -67,11 +68,12 @@
   <body>
     <div
       id="map"
-      data-lat="35.68079385698033"
-      data-lng="139.76710898064266"
+      data-lat="30.374955263804466"
+      data-lng="130.9576445665018"
       data-zoom="14"
       data-marker="off"
       data-geolocate-control="on"
+      data-gesture-handling="off"
       data-style="geolonia/gsi"
     ></div>
 
@@ -79,14 +81,14 @@
 
     <div class="footer">
       <div id="address">地図を動かしてください。</div>
-      <div class="credit"><a href="https://github.com/geolonia/open-reverse-geocoder">@geolonia/open-reverse-geocoder</a></div>
+      <div class="credit"><a href="https://github.com/geolonia/poc-reverse-geocoder">@geolonia/poc-reverse-geocoder</a></div>
     </div>
     <script>
       const openReverseGeocoder = ReverseGeocoder.openReverseGeocoder
 
       const map = new geolonia.Map('#map')
 
-      map.on('moveend', () => {
+      function runReverseGeocode() {
         const center = map.getCenter()
         openReverseGeocoder(Object.values(center)).then(res => {
           console.log(res)
@@ -99,6 +101,12 @@
           console.error(error)
           document.querySelector('#address').innerText = '地図を動かしてください。'
         })
+      }
+      map.on('moveend', () => {
+        runReverseGeocode()
+      })
+      map.on('load', () => {
+        runReverseGeocode()
       })
     </script>
   </body>

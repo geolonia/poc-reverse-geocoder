@@ -12,7 +12,7 @@ const isBrowser = !(
   typeof process.versions.node !== 'undefined'
 )
 
-const fetch = isBrowser ? _fetch.bind(window) : _fetch
+const fetch: typeof _fetch = isBrowser ? _fetch.bind(window) : _fetch
 
 const DEFAULT_FETCH_HEADERS: HeadersInit = isBrowser
   ? {}
@@ -78,13 +78,13 @@ const DEFAULT_OPTIONS: ReverseGeocodingOptions = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TILEJSON_CACHE: { [key: string]: any } = {}
-const TILE_CACHE: { [key: string]: VectorTile } = {}
+const TILE_CACHE: { [key: string]: VectorTile | false } = {}
 async function getTile(
   tileUrl: string,
   x: number,
   y: number,
   z: number,
-): Promise<VectorTile> {
+): Promise<VectorTile | false> {
   let _tileUrl = tileUrl
 
   if (new URL(tileUrl).pathname.endsWith('.json')) {
@@ -110,8 +110,18 @@ async function getTile(
   const res = await fetch(requestUrl, {
     headers: DEFAULT_FETCH_HEADERS,
   })
-  const buffer = await res.arrayBuffer()
-  tile = TILE_CACHE[requestUrl] = new VectorTile(new Protobuf(buffer))
+  if (res.status !== 200) {
+    tile = false
+  } else {
+    const buffer = await res.arrayBuffer()
+    try {
+      tile = new VectorTile(new Protobuf(buffer))
+    } catch (e) {
+      console.warn('Caught error when parsing vector tile, ignoring...', e)
+      tile = false
+    }
+  }
+  TILE_CACHE[requestUrl] = tile
   return tile
 }
 
@@ -131,6 +141,9 @@ export const singleGeocode: (
   const [x, y] = lngLatToGoogle(lnglat, options.zoomBase)
 
   const tile = await getTile(options.tileUrl, x, y, z)
+  if (!tile) {
+    return undefined
+  }
   let layers = Object.keys(tile.layers)
 
   if (!Array.isArray(layers)) layers = [layers]
